@@ -1,0 +1,10 @@
+version: '3'
+
+services:
+  telegram-bot:
+    build: .
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
+    restart: unless-stopped 

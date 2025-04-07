@@ -1,0 +1,50 @@
+{
+  "users": {
+    "7629779391": {
+      "categories": {
+        "Personal": [
+          {
+            "message_id": 3,
+            "file_type": "document",
+            "file_name": "filtered-47E714B9-D245-4128-8E1C-A5310817A2CB.MP4"
+          },
+          {
+            "message_id": 4,
+            "file_type": "document",
+            "file_name": "filtered-EE085039-5442-41B7-9D89-830CD85C0AD2.MP4"
+          }
+        ]
+      }
+    },
+    "5729964480": {
+      "categories": {
+        "Songs": [
+          {
+            "message_id": 5,
+            "file_type": "photo"
+          },
+          {
+            "message_id": 6,
+            "file_type": "photo"
+          },
+          {
+            "message_id": 7,
+            "file_type": "photo"
+          },
+          {
+            "message_id": 8,
+            "file_type": "photo"
+          },
+          {
+            "message_id": 9,
+            "file_type": "photo"
+          },
+          {
+            "message_id": 10,
+            "file_type": "photo"
+          }
+        ]
+      }
+    }
+  }
+}
