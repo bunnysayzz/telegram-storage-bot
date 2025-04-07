@@ -6,7 +6,7 @@ A Telegram bot that allows users to store and organize files, media, and documen
 
 ## 🚀 Try the Bot Now
 
-<a href="https://t.me/letssaveit">
+<a href="https://t.me/letssaveitbot">
   <img src="https://img.shields.io/badge/Telegram-%40letssaveit-blue?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram @letssaveit" width="250"/>
 </a>
 
@@ -169,6 +169,3 @@ After starting the bot with `/start`, you can interact with it using the followi
 - When deployed on Render's free tier, the bot may experience a slight delay (30-60 seconds) when receiving the first message after a period of inactivity
 - Subsequent messages will be processed quickly once the service is running
 
-## License
-
-MIT 
