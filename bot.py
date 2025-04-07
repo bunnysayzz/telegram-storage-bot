@@ -150,7 +150,7 @@ def help_command(update: Update, context: CallbackContext) -> None:
         '• There may be a short delay when first messaging the bot after inactivity\n'
         '• Send /start anytime to restart the conversation\n\n'
         
-        'Need more help? Contact the developer @Commit'
+        'Need more help? Contact the developer @azharsayzz'
     )
     
     update.message.reply_text(
@@ -199,7 +199,7 @@ def help_from_query(update: Update, context: CallbackContext) -> int:
         '• There may be a short delay when first messaging the bot after inactivity\n'
         '• Send /start anytime to restart the conversation\n\n'
         
-        'Need more help? Contact the developer @Commit'
+        'Need more help? Contact the developer @azharsayzz'
     )
     
     query.edit_message_text(
