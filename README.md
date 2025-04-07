@@ -6,8 +6,8 @@ A Telegram bot that allows users to store and organize files, media, and documen
 
 ## 🚀 Try the Bot Now
 
-<a href="https://t.me/Commit">
-  <img src="https://img.shields.io/badge/Telegram-%40Commit-blue?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram @Commit" width="250"/>
+<a href="https://t.me/letssaveit">
+  <img src="https://img.shields.io/badge/Telegram-%40letssaveit-blue?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram @letssaveit" width="250"/>
 </a>
 
 </div>
@@ -28,29 +28,6 @@ A Telegram bot that allows users to store and organize files, media, and documen
 - Python 3.7 or higher
 - A Telegram Bot Token (created via @BotFather)
 - A private Telegram channel where the bot is an admin
-
-### Installation
-
-1. Clone this repository:
-```bash
-git clone https://github.com/yourusername/telegram-storage-bot.git
-cd telegram-storage-bot
-```
-
-2. Install the required packages:
-```bash
-pip install -r requirements.txt
-```
-
-3. Configure your environment variables for:
-   - `BOT_TOKEN`: Get from @BotFather
-   - `CHANNEL_ID`: ID of your private channel (usually starts with -100)
-   - `CHANNEL_FIRST_MESSAGE_ID`: ID of the first message in your channel (usually 2)
-
-4. Run the bot:
-```bash
-python bot.py
-```
 
 ## 🐳 Docker Deployment
 
