@@ -2,14 +2,24 @@
 
 A Telegram bot that allows users to store and organize files, media, and documents into categories, and access them anytime.
 
-**Try it now: [@Commit](https://t.me/Commit)**
+<div align="center">
 
-## Features
+## 🚀 Try the Bot Now
 
-- Store any type of file (photos, videos, documents, audio, voice messages, animations)
-- Organize files into custom categories
-- Browse and retrieve files by category
-- Create and delete categories
+<a href="https://t.me/Commit">
+  <img src="https://img.shields.io/badge/Telegram-%40Commit-blue?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram @Commit" width="250"/>
+</a>
+
+</div>
+
+---
+
+## ✨ Features
+
+- 📁 Store any type of file (photos, videos, documents, audio, voice messages, animations)
+- 🗂️ Organize files into custom categories
+- 🔍 Browse and retrieve files by category
+- ⚙️ Create and delete categories
 
 ## Setup
 
@@ -42,7 +52,7 @@ pip install -r requirements.txt
 python bot.py
 ```
 
-## Docker Deployment
+## 🐳 Docker Deployment
 
 ### Running with Docker
 
@@ -74,7 +84,7 @@ docker run -d --name telegram-bot \
 docker-compose up -d
 ```
 
-## Deploying to Render
+## 🚀 Deploying to Render
 
 ### Option 1: Deploy via Dashboard
 
@@ -112,7 +122,7 @@ docker-compose up -d
 - Make sure to use disk persistence for the `/app/data` directory to maintain your database between deployments.
 - The free tier of Render spins down after periods of inactivity, which may affect your bot's response time.
 
-## Usage
+## 📚 Usage
 
 After starting the bot with `/start`, you can interact with it using the following commands:
 
