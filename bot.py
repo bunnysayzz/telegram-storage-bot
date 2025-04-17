@@ -1,5 +1,6 @@
 import os
 import logging
+import sys
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, BotCommand
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler, ConversationHandler
 from dotenv import load_dotenv
@@ -16,6 +17,11 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+# Add console output for better debugging
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+logger.addHandler(console_handler)
 
 # Conversation states
 CHOOSING_CATEGORY, CREATE_CATEGORY, WAITING_FOR_CATEGORY_NAME, CHOOSING_FILE, MAIN_MENU = range(5)
@@ -860,6 +866,16 @@ def main() -> None:
     # Initialize the database
     db.init_db()
     
+    # Print environment variables for debugging (masking sensitive values)
+    logger.info(f"Environment variables:")
+    logger.info(f"IS_DOCKER: {os.environ.get('IS_DOCKER')}")
+    logger.info(f"RENDER: {os.environ.get('RENDER')}")
+    logger.info(f"PORT: {os.environ.get('PORT')}")
+    logger.info(f"HEALTH_PORT: {os.environ.get('HEALTH_PORT')}")
+    logger.info(f"RENDER_EXTERNAL_URL: {os.environ.get('RENDER_EXTERNAL_URL')}")
+    logger.info(f"BOT_TOKEN set: {'Yes' if os.environ.get('BOT_TOKEN') else 'No'}")
+    logger.info(f"CHANNEL_ID set: {'Yes' if os.environ.get('CHANNEL_ID') else 'No'}")
+    
     # Start health check server if running in Docker/Render
     if os.environ.get('IS_DOCKER') == 'true' or os.environ.get('RENDER') == 'true':
         run_health_server()
@@ -873,11 +889,24 @@ def main() -> None:
     
     updater = Updater(bot_token)
     
+    # Log bot information
+    try:
+        bot_info = updater.bot.get_me()
+        logger.info(f"Bot connected successfully: @{bot_info.username} (ID: {bot_info.id})")
+    except Exception as e:
+        logger.error(f"Failed to get bot information: {e}")
+        logger.error("Please check your BOT_TOKEN")
+        return
+    
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
     
     # Set up the commands menu
-    set_bot_commands(updater)
+    try:
+        set_bot_commands(updater)
+        logger.info("Bot commands set successfully")
+    except Exception as e:
+        logger.error(f"Failed to set bot commands: {e}")
     
     # Basic commands
     dispatcher.add_handler(CommandHandler("start", start_command))
@@ -965,22 +994,27 @@ def main() -> None:
                 webhook_url = f"{RENDER_URL}/telegram"
                 logger.info(f"Attempting to set webhook to {webhook_url}")
                 
-                # Test if the bot token is valid
-                me = updater.bot.get_me()
-                logger.info(f"Bot username: @{me.username}")
+                # Set the webhook with more detailed error messages
+                webhook_result = updater.bot.set_webhook(url=webhook_url)
                 
-                # Set the webhook
-                updater.bot.set_webhook(url=webhook_url)
-                logger.info(f"Successfully set webhook to {webhook_url}")
-                
-                # Start webhook server
-                updater.start_webhook(
-                    listen="0.0.0.0",
-                    port=PORT,
-                    url_path="telegram",
-                    webhook_url=webhook_url
-                )
-                logger.info(f"Webhook server started on port {PORT}")
+                if webhook_result:
+                    logger.info(f"Successfully set webhook to {webhook_url}")
+                    
+                    # Verify webhook was set
+                    webhook_info = updater.bot.get_webhook_info()
+                    logger.info(f"Webhook verification - URL: {webhook_info.url}, Pending updates: {webhook_info.pending_update_count}")
+                    
+                    # Start webhook server
+                    updater.start_webhook(
+                        listen="0.0.0.0",
+                        port=PORT,
+                        url_path="telegram",
+                        webhook_url=webhook_url
+                    )
+                    logger.info(f"Webhook server started on port {PORT}")
+                else:
+                    raise Exception("Webhook returned False")
+                    
             except Exception as e:
                 logger.error(f"Failed to set up webhook: {e}")
                 # Fallback to polling if webhook setup fails

@@ -1,6 +1,13 @@
 import json
 import os
+import shutil
+import logging
+import time
 from typing import Dict, List, Optional, Any, Tuple
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Database structure
 # {
@@ -15,24 +22,82 @@ from typing import Dict, List, Optional, Any, Tuple
 #   }
 # }
 
-DB_FILE = "store_bot_db.json"
+# Use the persistent data directory when in Docker/Render
+if os.environ.get('IS_DOCKER') == 'true' or os.environ.get('RENDER') == 'true':
+    DATA_DIR = "data"
+    # Create data directory if it doesn't exist
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR, exist_ok=True)
+        logger.info(f"Created data directory at {os.path.abspath(DATA_DIR)}")
+    
+    DB_FILE = os.path.join(DATA_DIR, "store_bot_db.json")
+    logger.info(f"Using database at {os.path.abspath(DB_FILE)}")
+else:
+    DB_FILE = "store_bot_db.json"
+    logger.info(f"Using local database at {os.path.abspath(DB_FILE)}")
 
 def init_db() -> None:
     """Initialize the database if it doesn't exist."""
-    if not os.path.exists(DB_FILE):
-        with open(DB_FILE, 'w') as f:
-            json.dump({"users": {}}, f)
+    try:
+        if not os.path.exists(DB_FILE):
+            # Ensure directory exists
+            dir_path = os.path.dirname(DB_FILE)
+            if dir_path and not os.path.exists(dir_path):
+                os.makedirs(dir_path, exist_ok=True)
+                logger.info(f"Created directory {dir_path} for database")
+            
+            # Create new DB file
+            with open(DB_FILE, 'w') as f:
+                json.dump({"users": {}}, f)
+            logger.info(f"Initialized new database at {DB_FILE}")
+        else:
+            # Verify the file is valid JSON
+            try:
+                with open(DB_FILE, 'r') as f:
+                    json.load(f)
+                logger.info(f"Existing database found at {DB_FILE}")
+            except json.JSONDecodeError:
+                logger.error(f"Database file {DB_FILE} exists but contains invalid JSON")
+                # Backup the broken file
+                backup_file = f"{DB_FILE}.broken.{int(time.time())}"
+                shutil.copy2(DB_FILE, backup_file)
+                logger.info(f"Created backup of broken database at {backup_file}")
+                
+                # Create new DB file
+                with open(DB_FILE, 'w') as f:
+                    json.dump({"users": {}}, f)
+                logger.info(f"Recreated database at {DB_FILE}")
+    except Exception as e:
+        logger.error(f"Error initializing database: {e}")
+        raise
 
 def get_db() -> Dict[str, Any]:
     """Get the current database."""
-    init_db()
-    with open(DB_FILE, 'r') as f:
-        return json.load(f)
+    try:
+        init_db()
+        with open(DB_FILE, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"Error reading database: {e}")
+        # Return empty database structure as fallback
+        return {"users": {}}
 
 def save_db(db: Dict[str, Any]) -> None:
     """Save the database."""
-    with open(DB_FILE, 'w') as f:
-        json.dump(db, f, indent=2)
+    try:
+        # First create a temporary file
+        temp_file = f"{DB_FILE}.temp"
+        with open(temp_file, 'w') as f:
+            json.dump(db, f, indent=2)
+        
+        # Then rename it to the actual file (atomic operation)
+        os.replace(temp_file, DB_FILE)
+        
+        # Log the operation for debugging
+        logger.debug(f"Database saved successfully to {DB_FILE}")
+    except Exception as e:
+        logger.error(f"Error saving database: {e}")
+        raise
 
 def get_user_data(user_id: int) -> Dict[str, Any]:
     """Get data for a specific user."""
@@ -71,6 +136,7 @@ def add_file_to_category(user_id: int, category: str, message_id: int, file_type
     
     db["users"][user_id_str]["categories"][category].append(file_info)
     save_db(db)
+    logger.info(f"Added file to category '{category}' for user {user_id}")
 
 def get_files_in_category(user_id: int, category: str) -> List[Dict[str, Any]]:
     """Get all files in a category."""
@@ -125,4 +191,25 @@ def delete_category(user_id: int, category: str) -> bool:
         save_db(db)
         return True
     
-    return False 
+    return False
+
+def backup_database() -> str:
+    """Create a backup of the database file.
+    
+    Returns:
+        The path to the backup file.
+    """
+    if not os.path.exists(DB_FILE):
+        logger.warning(f"Cannot backup - database file {DB_FILE} does not exist")
+        return ""
+    
+    timestamp = int(time.time())
+    backup_file = f"{DB_FILE}.backup.{timestamp}"
+    
+    try:
+        shutil.copy2(DB_FILE, backup_file)
+        logger.info(f"Created database backup at {backup_file}")
+        return backup_file
+    except Exception as e:
+        logger.error(f"Failed to create database backup: {e}")
+        return "" 

@@ -10,8 +10,8 @@ services:
       mountPath: /app/data
       sizeGB: 1
     # Health check to ensure the service is running
-    healthCheckPath: /health
-    healthCheckTimeout: 5
+    healthCheckPath: /ping
+    healthCheckTimeout: 3
     # Configure ports
     envVars:
       - key: PORT

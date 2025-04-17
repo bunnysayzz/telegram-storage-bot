@@ -13,13 +13,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create data directory for persistent storage
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data && chmod 777 /app/data
 
 # Ensure the start script is executable
 RUN chmod +x start.sh
-
-# Move the database file to the volume location
-RUN sed -i 's/DB_FILE = "store_bot_db.json"/DB_FILE = "data\/store_bot_db.json"/' database.py
 
 # Volume for persistent storage
 VOLUME ["/app/data"]
