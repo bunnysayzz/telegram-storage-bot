@@ -866,7 +866,12 @@ def main() -> None:
         logger.info("Health check server started")
     
     # Create the Updater and pass it your bot's token
-    updater = Updater(os.getenv("BOT_TOKEN"))
+    bot_token = os.getenv("BOT_TOKEN")
+    if not bot_token:
+        logger.error("No BOT_TOKEN environment variable found! Exiting...")
+        return
+    
+    updater = Updater(bot_token)
     
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
@@ -942,8 +947,11 @@ def main() -> None:
     dispatcher.add_handler(conv_handler)
     
     # Delete webhook before starting the bot
-    updater.bot.delete_webhook()
-    logger.info("Deleted existing webhook")
+    try:
+        updater.bot.delete_webhook()
+        logger.info("Deleted existing webhook")
+    except Exception as e:
+        logger.error(f"Error deleting webhook: {e}")
     
     # Check if we're running on Render
     if os.environ.get('RENDER') == 'true':
@@ -952,19 +960,33 @@ def main() -> None:
         RENDER_URL = os.environ.get('RENDER_EXTERNAL_URL')
         
         if RENDER_URL:
-            # Set webhook
-            webhook_url = f"{RENDER_URL}/telegram"
-            updater.bot.set_webhook(url=webhook_url)
-            logger.info(f"Set webhook to {webhook_url}")
-            
-            # Start webhook server
-            updater.start_webhook(
-                listen="0.0.0.0",
-                port=PORT,
-                url_path="telegram",
-                webhook_url=webhook_url
-            )
-            logger.info(f"Webhook server started on port {PORT}")
+            try:
+                # Set webhook with proper path
+                webhook_url = f"{RENDER_URL}/telegram"
+                logger.info(f"Attempting to set webhook to {webhook_url}")
+                
+                # Test if the bot token is valid
+                me = updater.bot.get_me()
+                logger.info(f"Bot username: @{me.username}")
+                
+                # Set the webhook
+                updater.bot.set_webhook(url=webhook_url)
+                logger.info(f"Successfully set webhook to {webhook_url}")
+                
+                # Start webhook server
+                updater.start_webhook(
+                    listen="0.0.0.0",
+                    port=PORT,
+                    url_path="telegram",
+                    webhook_url=webhook_url
+                )
+                logger.info(f"Webhook server started on port {PORT}")
+            except Exception as e:
+                logger.error(f"Failed to set up webhook: {e}")
+                # Fallback to polling if webhook setup fails
+                logger.info("Falling back to polling mode due to webhook setup failure")
+                updater.start_polling()
+                logger.info("Polling mode started")
         else:
             # Fallback to polling if RENDER_EXTERNAL_URL is not available
             logger.warning("RENDER_EXTERNAL_URL not found, falling back to polling")
