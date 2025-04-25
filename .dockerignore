@@ -25,4 +25,5 @@ var/
 .env.test.local
 .env.production.local
 store_bot_db.json
-data/ 
+data/
+mongodb_backup_*.json 

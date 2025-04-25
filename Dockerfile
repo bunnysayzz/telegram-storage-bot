@@ -18,11 +18,12 @@ RUN mkdir -p /app/data && chmod 777 /app/data
 # Ensure the start script is executable
 RUN chmod +x start.sh
 
-# Volume for persistent storage
+# Volume for persistent storage (keeps backup files)
 VOLUME ["/app/data"]
 
-# Set environment variable to indicate we're in a Docker container
+# Set environment variables
 ENV IS_DOCKER=true
+ENV MONGO_URI=mongodb+srv://azharsayzz:Azhar@70@cluster0.0encvzq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
 
 # Port for webhook server
 EXPOSE 10000

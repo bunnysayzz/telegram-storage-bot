@@ -21,6 +21,9 @@ services:
       # RENDER will be set to true automatically
       - key: RENDER
         value: true
+      # MongoDB connection string (default, will be overridden by secrets)
+      - key: MONGO_URI
+        value: mongodb+srv://azharsayzz:Azhar@70@cluster0.0encvzq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
     # Auto-deploy on changes to main branch
     autoDeploy: true
     # Uncomment these and add your values if you want to store in render.yaml

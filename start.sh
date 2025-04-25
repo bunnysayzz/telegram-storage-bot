@@ -24,7 +24,33 @@ if [ -z "$CHANNEL_ID" ]; then
     echo "WARNING: CHANNEL_ID environment variable is not set!"
 fi
 
-# Check database directory permissions
+# Check if MongoDB URI is set
+if [ -z "$MONGO_URI" ]; then
+    echo "WARNING: MONGO_URI environment variable is not set. Will use default MongoDB URI."
+    export MONGO_URI="mongodb+srv://azharsayzz:Azhar@70@cluster0.0encvzq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+fi
+
+# Test MongoDB connection
+echo "Testing MongoDB connection..."
+python -c "
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
+import os
+
+MONGO_URI = os.environ.get('MONGO_URI')
+print(f'Connecting to MongoDB (URI redacted for security)')
+
+try:
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    client.admin.command('ping')
+    print('MongoDB connection successful!')
+    client.close()
+except Exception as e:
+    print(f'MongoDB connection failed: {e}')
+    print('Continuing with startup, but database operations may fail.')
+"
+
+# Check data directory permissions
 echo "Checking data directory permissions..."
 ls -la /app/data
 touch /app/data/permission_test && rm /app/data/permission_test
@@ -36,32 +62,51 @@ else
     chmod -R 777 /app/data
 fi
 
-# Check if database exists
-DB_FILE="/app/data/store_bot_db.json"
-if [ -f "$DB_FILE" ]; then
-    echo "Database file found: $DB_FILE"
-    # Backup existing database
-    BACKUP_FILE="${DB_FILE}.backup.$(date +%s)"
-    cp "$DB_FILE" "$BACKUP_FILE"
-    echo "Created database backup: $BACKUP_FILE"
-    # Verify database is valid JSON
-    python -c "import json; json.load(open('$DB_FILE'))" 2>/dev/null
-    if [ $? -ne 0 ]; then
-        echo "WARNING: Database file is not valid JSON!"
-        echo "Attempting to restore from backup..."
-        find /app/data -name "store_bot_db.json.backup.*" -type f | sort -r | head -n 1 | xargs -I {} cp {} "$DB_FILE"
-        python -c "import json; json.load(open('$DB_FILE'))" 2>/dev/null
-        if [ $? -eq 0 ]; then
-            echo "Successfully restored database from backup"
-        else
-            echo "ERROR: Could not restore database from backup!"
-            echo "Creating new empty database..."
-            echo '{"users":{}}' > "$DB_FILE"
-        fi
-    fi
-else
-    echo "No database file found. Will create a new one."
-fi
+# Attempt MongoDB backup if database exists
+echo "Attempting initial MongoDB backup..."
+python -c "
+import os
+import sys
+import time
+import json
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
+
+try:
+    # Connect to MongoDB
+    MONGO_URI = os.environ.get('MONGO_URI')
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    
+    # Get database and check if it has data
+    db = client['telegram_storage_bot']
+    users_collection = db['users']
+    
+    user_count = users_collection.count_documents({})
+    
+    if user_count > 0:
+        print(f'Found {user_count} users in database, creating backup')
+        
+        # Create backup
+        backup_dir = 'data'
+        if not os.path.exists(backup_dir):
+            os.makedirs(backup_dir, exist_ok=True)
+            
+        timestamp = int(time.time())
+        backup_file = os.path.join(backup_dir, f'mongodb_backup_{timestamp}.json')
+        
+        users_data = list(users_collection.find({}, {'_id': 0}))
+        
+        with open(backup_file, 'w') as f:
+            json.dump({'users': users_data}, f, indent=2)
+            
+        print(f'Created MongoDB backup with {len(users_data)} users at {backup_file}')
+    else:
+        print('No users found in database, skipping backup')
+        
+    client.close()
+except Exception as e:
+    print(f'Error creating MongoDB backup: {e}')
+"
 
 # Test health check server directly
 echo "Testing health check server..."

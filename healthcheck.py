@@ -27,10 +27,40 @@ class HealthCheckHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             
+            # Check MongoDB connection
+            mongodb_status = "unknown"
+            mongodb_error = None
+            
+            try:
+                from pymongo import MongoClient
+                from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
+                
+                mongo_uri = os.environ.get('MONGO_URI', 'mongodb+srv://azharsayzz:Azhar@70@cluster0.0encvzq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
+                client = MongoClient(mongo_uri, serverSelectionTimeoutMS=2000)
+                
+                # Ping the database to check connection
+                client.admin.command('ping')
+                mongodb_status = "connected"
+                
+                # Check if we have users in the database
+                db = client['telegram_storage_bot']
+                user_count = db['users'].count_documents({})
+                
+                # Close the connection
+                client.close()
+                
+            except Exception as e:
+                mongodb_status = "error"
+                mongodb_error = str(e)
+            
             # Gather system information
             health_data = {
                 "status": "healthy",
                 "timestamp": datetime.datetime.now().isoformat(),
+                "mongodb": {
+                    "status": mongodb_status,
+                    "error": mongodb_error
+                },
                 "environment": {
                     "python_version": os.popen('python --version').read().strip(),
                     "system": os.name,
