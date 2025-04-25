@@ -8,5 +8,5 @@ services:
     env_file:
       - .env
     environment:
-      - MONGO_URI=mongodb+srv://azharsayzz:Azhar@70@cluster0.0encvzq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+      - IS_DOCKER=true
     restart: unless-stopped 

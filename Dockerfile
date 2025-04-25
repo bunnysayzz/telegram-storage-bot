@@ -2,8 +2,8 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install curl for webhook management
-RUN apt-get update && apt-get install -y curl && apt-get clean
+# Install curl for webhook management and build dependencies for pymongo
+RUN apt-get update && apt-get install -y curl build-essential && apt-get clean
 
 # Copy requirements first for better caching
 COPY requirements.txt .
@@ -12,18 +12,17 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
-# Create data directory for persistent storage
+# Create data directory for persistent storage (for exports/backups)
 RUN mkdir -p /app/data && chmod 777 /app/data
 
 # Ensure the start script is executable
 RUN chmod +x start.sh
 
-# Volume for persistent storage (keeps backup files)
+# Volume for persistent storage
 VOLUME ["/app/data"]
 
-# Set environment variables
+# Set environment variable to indicate we're in a Docker container
 ENV IS_DOCKER=true
-ENV MONGO_URI=mongodb+srv://azharsayzz:Azhar@70@cluster0.0encvzq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
 
 # Port for webhook server
 EXPOSE 10000

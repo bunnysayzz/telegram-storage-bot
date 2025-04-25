@@ -20,6 +20,8 @@ A Telegram bot that allows users to store and organize files, media, and documen
 - 🗂️ Organize files into custom categories
 - 🔍 Browse and retrieve files by category
 - ⚙️ Create and delete categories
+- 🔄 MongoDB integration for persistent storage
+- 🛡️ Secure and reliable data storage
 
 ## Setup
 
@@ -28,7 +30,23 @@ A Telegram bot that allows users to store and organize files, media, and documen
 - Python 3.7 or higher
 - A Telegram Bot Token (created via @BotFather)
 - A private Telegram channel where the bot is an admin
-- MongoDB database (the bot uses MongoDB Atlas by default)
+- MongoDB database (Atlas or self-hosted)
+
+### Environment Variables
+
+Create a `.env` file with the following variables:
+
+```
+# Required
+BOT_TOKEN=your_bot_token
+CHANNEL_ID=your_channel_id
+MONGO_URI=mongodb+srv://username:password@your-cluster.mongodb.net/your-database
+
+# Optional
+TELEGRAM_API_ID=your_api_id
+API_HASH=your_api_hash
+CHANNEL_FIRST_MESSAGE_ID=2
+```
 
 ## 🐳 Docker Deployment
 
@@ -41,7 +59,7 @@ A Telegram bot that allows users to store and organize files, media, and documen
 docker build -t telegram-storage-bot .
 ```
 
-3. Create a data directory for persistent storage:
+3. Create a data directory for persistent storage (for exports/backups):
 ```bash
 mkdir -p data
 ```
@@ -75,7 +93,10 @@ docker-compose up -d
 4. Configure the following environment variables in the Render dashboard:
    - `BOT_TOKEN=your_bot_token`
    - `CHANNEL_ID=your_channel_id`
-   - `MONGO_URI=your_mongodb_connection_string`
+   - `MONGO_URI=mongodb+srv://username:password@your-cluster.mongodb.net/your-database`
+   - `TELEGRAM_API_ID=your_api_id` (optional)
+   - `API_HASH=your_api_hash` (optional)
+   - `CHANNEL_FIRST_MESSAGE_ID=2` (optional)
 
 5. Set these additional options:
    - Set the port to `10000`
@@ -93,13 +114,17 @@ docker-compose up -d
 
 4. Connect your repository and Render will automatically configure the service.
 
-### Important Notes for Render
+## 📋 Data Migration
 
-- The bot will automatically run in webhook mode when deployed on Render, making it more responsive.
-- The bot includes a health check server on port 8080 that Render uses to determine if the service is running.
-- User data and file references are stored in MongoDB for persistence and reliability.
-- Make sure to use disk persistence for the `/app/data` directory for storing backups.
-- The free tier of Render spins down after periods of inactivity, which may affect your bot's response time.
+If you're upgrading from a previous version that used JSON file storage, you can migrate your data to MongoDB using the included migration script:
+
+```bash
+# Set the MONGO_URI environment variable first
+export MONGO_URI=mongodb+srv://username:password@your-cluster.mongodb.net/your-database
+
+# Run the migration script
+python migrate_to_mongodb.py path/to/store_bot_db.json
+```
 
 ## 📚 Usage
 
@@ -167,17 +192,8 @@ After starting the bot with `/start`, you can interact with it using the followi
 ### Important Notes
 
 - Files are securely stored on Telegram servers
-- User data is stored in MongoDB for reliability and persistence
+- User data and file references are stored in MongoDB for persistence
 - The bot uses inline buttons for navigation, making it easy to use
 - When deployed on Render's free tier, the bot may experience a slight delay (30-60 seconds) when receiving the first message after a period of inactivity
 - Subsequent messages will be processed quickly once the service is running
-
-## Data Storage
-
-The bot uses MongoDB to store:
-- User categories
-- References to files stored on Telegram
-- MongoDB ensures data persistence even if users delete and re-add the bot
-
-The actual files are stored on Telegram's servers in a dedicated channel, maintaining them securely while the bot only stores references to these files.
 

@@ -1,9 +1,9 @@
 import os
 import logging
-import time
 from typing import Dict, List, Optional, Any, Tuple
 from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
+from pymongo.collection import Collection
+from pymongo.database import Database
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -13,80 +13,69 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# MongoDB connection string
-MONGO_URI = os.environ.get('MONGO_URI', 'mongodb+srv://azharsayzz:Azhar@70@cluster0.0encvzq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
+# MongoDB connection variables
+MONGO_URI = os.environ.get('MONGO_URI')
+DB_NAME = 'telegram_storage_bot'
+USERS_COLLECTION = 'users'
 
-# Database and collection names
-DB_NAME = "telegram_storage_bot"
-USERS_COLLECTION = "users"
-
-# Global client variable
+# Global connection objects
 mongo_client = None
 db = None
+users_collection = None
 
-def get_mongo_client():
-    """Get or create MongoDB client."""
-    global mongo_client, db
-    
-    if mongo_client is None:
-        try:
-            # Create a new client and connect to the server
-            mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-            
-            # Verify the connection
-            mongo_client.admin.command('ping')
-            logger.info("Connected successfully to MongoDB")
-            
-            # Get database
-            db = mongo_client[DB_NAME]
-            return mongo_client
-            
-        except (ConnectionFailure, ServerSelectionTimeoutError) as e:
-            logger.error(f"MongoDB Connection error: {e}")
-            raise
-    
-    return mongo_client
-
-def get_db():
-    """Get the MongoDB database object."""
-    global db
-    if db is None:
-        get_mongo_client()
-    return db
+# Database structure in MongoDB will be similar to the JSON structure:
+# {
+#   "_id": "user_id",
+#   "categories": {
+#     "category_name": [
+#       {"message_id": 123, "file_type": "photo", "file_name": "example.jpg"},
+#     ]
+#   }
+# }
 
 def init_db() -> None:
-    """Initialize the database connection."""
+    """Initialize the MongoDB connection if it's not already initialized."""
+    global mongo_client, db, users_collection
+    
+    if not MONGO_URI:
+        logger.error("MONGO_URI environment variable is not set!")
+        raise ValueError("MONGO_URI environment variable must be set")
+        
     try:
-        # Get the MongoDB client
-        client = get_mongo_client()
-        
-        # Create indexes if needed
-        db = get_db()
-        users_collection = db[USERS_COLLECTION]
-        
-        # Create index on user_id for faster lookups
-        users_collection.create_index("user_id")
-        
-        logger.info(f"Database initialized: {DB_NAME}")
+        if mongo_client is None:
+            # Create a MongoDB client
+            mongo_client = MongoClient(MONGO_URI)
+            
+            # Access the database
+            db = mongo_client[DB_NAME]
+            
+            # Access the users collection
+            users_collection = db[USERS_COLLECTION]
+            
+            # Create an index on user_id for faster lookups
+            users_collection.create_index("_id")
+            
+            logger.info(f"Successfully connected to MongoDB database '{DB_NAME}'")
+            
+            # Test the connection
+            mongo_client.admin.command('ping')
+            logger.info("MongoDB connection verified with ping")
     except Exception as e:
-        logger.error(f"Error initializing database: {e}")
+        logger.error(f"Error connecting to MongoDB: {e}")
         raise
 
 def get_user_data(user_id: int) -> Dict[str, Any]:
     """Get data for a specific user."""
-    users_collection = get_db()[USERS_COLLECTION]
+    init_db()
     
     user_id_str = str(user_id)
-    user_data = users_collection.find_one({"user_id": user_id_str})
+    user_data = users_collection.find_one({"_id": user_id_str})
     
     if not user_data:
-        # Create new user entry if it doesn't exist
-        user_data = {
-            "user_id": user_id_str,
-            "categories": {}
-        }
+        # Create new user document if it doesn't exist
+        user_data = {"_id": user_id_str, "categories": {}}
         users_collection.insert_one(user_data)
-        logger.info(f"Created new user record for user_id: {user_id_str}")
+        logger.info(f"Created new user document for user {user_id}")
     
     return user_data
 
@@ -94,6 +83,7 @@ def get_user_categories(user_id: int) -> List[str]:
     """Get all categories for a user."""
     user_data = get_user_data(user_id)
     
+    # Check if categories field exists
     if "categories" not in user_data:
         return []
     
@@ -101,10 +91,10 @@ def get_user_categories(user_id: int) -> List[str]:
 
 def add_file_to_category(user_id: int, category: str, message_id: int, file_type: str, file_name: Optional[str] = None) -> None:
     """Add a file to a category."""
-    users_collection = get_db()[USERS_COLLECTION]
+    init_db()
     user_id_str = str(user_id)
     
-    # Prepare file info
+    # Prepare the file info
     file_info = {
         "message_id": message_id,
         "file_type": file_type,
@@ -113,17 +103,19 @@ def add_file_to_category(user_id: int, category: str, message_id: int, file_type
     if file_name:
         file_info["file_name"] = file_name
     
-    # Update the user record
-    users_collection.update_one(
-        {"user_id": user_id_str},
+    # Update the user document - push the new file to the category array
+    result = users_collection.update_one(
+        {"_id": user_id_str},
         {
             "$push": {f"categories.{category}": file_info},
-            "$setOnInsert": {"user_id": user_id_str}
         },
         upsert=True
     )
     
-    logger.info(f"Added file to category '{category}' for user {user_id}")
+    if result.modified_count > 0 or result.upserted_id:
+        logger.info(f"Added file to category '{category}' for user {user_id}")
+    else:
+        logger.warning(f"Failed to add file to category '{category}' for user {user_id}")
 
 def get_files_in_category(user_id: int, category: str) -> List[Dict[str, Any]]:
     """Get all files in a category."""
@@ -157,72 +149,125 @@ def get_files_in_category_paginated(user_id: int, category: str, page: int = 1, 
 
 def create_category(user_id: int, category: str) -> None:
     """Create a new category for a user."""
-    users_collection = get_db()[USERS_COLLECTION]
+    init_db()
     user_id_str = str(user_id)
     
-    # Check if category already exists
+    # Check if the category already exists
     user_data = get_user_data(user_id)
-    if "categories" in user_data and category in user_data["categories"]:
-        # Category already exists, no need to create it again
-        return
+    categories = user_data.get("categories", {})
     
-    # Create the category with an empty array
-    users_collection.update_one(
-        {"user_id": user_id_str},
-        {
-            "$set": {f"categories.{category}": []},
-            "$setOnInsert": {"user_id": user_id_str}
-        },
-        upsert=True
-    )
-    
-    logger.info(f"Created new category '{category}' for user {user_id}")
+    if category not in categories:
+        # Update the user document to include the new empty category
+        result = users_collection.update_one(
+            {"_id": user_id_str},
+            {"$set": {f"categories.{category}": []}},
+            upsert=True
+        )
+        
+        if result.modified_count > 0 or result.upserted_id:
+            logger.info(f"Created category '{category}' for user {user_id}")
+        else:
+            logger.warning(f"Failed to create category '{category}' for user {user_id}")
 
 def delete_category(user_id: int, category: str) -> bool:
     """Delete a category for a user."""
-    users_collection = get_db()[USERS_COLLECTION]
+    init_db()
     user_id_str = str(user_id)
     
-    # Check if category exists before deleting
+    # Check if the category exists
     user_data = get_user_data(user_id)
     if "categories" not in user_data or category not in user_data["categories"]:
         return False
     
-    # Remove the category
+    # Remove the category field
     result = users_collection.update_one(
-        {"user_id": user_id_str},
+        {"_id": user_id_str},
         {"$unset": {f"categories.{category}": ""}}
     )
     
-    return result.modified_count > 0
+    if result.modified_count > 0:
+        logger.info(f"Deleted category '{category}' for user {user_id}")
+        return True
+    else:
+        logger.warning(f"Failed to delete category '{category}' for user {user_id}")
+        return False
 
-def backup_database() -> str:
-    """Create a backup of the database by exporting MongoDB data to a JSON file.
+def import_from_json(json_file_path: str) -> bool:
+    """Import data from a JSON file into MongoDB.
+    
+    This is useful for migrating existing data from the old JSON format.
     
     Returns:
-        The path to the backup file.
+        bool: True if successful, False otherwise
     """
+    import json
+    
     try:
-        # Create data directory if it doesn't exist
-        backup_dir = "data"
-        if not os.path.exists(backup_dir):
-            os.makedirs(backup_dir, exist_ok=True)
+        # Read the JSON file
+        with open(json_file_path, 'r') as f:
+            data = json.load(f)
         
-        # Generate timestamp for the backup file
-        timestamp = int(time.time())
-        backup_file = os.path.join(backup_dir, f"mongodb_backup_{timestamp}.json")
+        init_db()
         
-        # Get all user data from MongoDB
-        users_collection = get_db()[USERS_COLLECTION]
-        users_data = list(users_collection.find({}, {"_id": 0}))  # Exclude MongoDB _id field
+        # Process each user in the JSON
+        for user_id, user_data in data.get("users", {}).items():
+            # Create a MongoDB document for this user
+            mongo_user = {
+                "_id": user_id,
+                "categories": user_data.get("categories", {})
+            }
+            
+            # Insert or update the user document
+            users_collection.replace_one(
+                {"_id": user_id},
+                mongo_user,
+                upsert=True
+            )
         
-        # Save to file
-        with open(backup_file, 'w') as f:
-            import json
-            json.dump({"users": users_data}, f, indent=2)
-        
-        logger.info(f"Created MongoDB database backup at {backup_file}")
-        return backup_file
+        logger.info(f"Successfully imported data from {json_file_path}")
+        return True
     except Exception as e:
-        logger.error(f"Failed to create database backup: {e}")
-        return "" 
+        logger.error(f"Error importing data from JSON: {e}")
+        return False
+
+def export_to_json(json_file_path: str) -> bool:
+    """Export data from MongoDB to a JSON file.
+    
+    This is useful for creating backups or migrating to another system.
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    import json
+    
+    try:
+        init_db()
+        
+        # Fetch all users
+        all_users = list(users_collection.find({}))
+        
+        # Format into the expected structure
+        export_data = {"users": {}}
+        for user in all_users:
+            user_id = user["_id"]
+            export_data["users"][user_id] = {
+                "categories": user.get("categories", {})
+            }
+        
+        # Write to JSON file
+        with open(json_file_path, 'w') as f:
+            json.dump(export_data, f, indent=2)
+        
+        logger.info(f"Successfully exported data to {json_file_path}")
+        return True
+    except Exception as e:
+        logger.error(f"Error exporting data to JSON: {e}")
+        return False
+
+def close_connection():
+    """Close the MongoDB connection."""
+    global mongo_client
+    if mongo_client:
+        mongo_client.close()
+        logger.info("MongoDB connection closed")
+        mongo_client = None 

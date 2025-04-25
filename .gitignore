@@ -11,7 +11,6 @@ __pycache__/
 # Database files
 store_bot_db.json
 data/
-mongodb_backup_*.json
 
 # Distribution / packaging
 env/

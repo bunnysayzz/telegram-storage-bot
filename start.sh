@@ -19,38 +19,18 @@ if [ -z "$BOT_TOKEN" ]; then
     exit 1
 fi
 
+# Check if MONGO_URI is set
+if [ -z "$MONGO_URI" ]; then
+    echo "ERROR: MONGO_URI environment variable is not set!"
+    exit 1
+fi
+
 # Check if channel ID is set
 if [ -z "$CHANNEL_ID" ]; then
     echo "WARNING: CHANNEL_ID environment variable is not set!"
 fi
 
-# Check if MongoDB URI is set
-if [ -z "$MONGO_URI" ]; then
-    echo "WARNING: MONGO_URI environment variable is not set. Will use default MongoDB URI."
-    export MONGO_URI="mongodb+srv://azharsayzz:Azhar@70@cluster0.0encvzq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-fi
-
-# Test MongoDB connection
-echo "Testing MongoDB connection..."
-python -c "
-from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
-import os
-
-MONGO_URI = os.environ.get('MONGO_URI')
-print(f'Connecting to MongoDB (URI redacted for security)')
-
-try:
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-    client.admin.command('ping')
-    print('MongoDB connection successful!')
-    client.close()
-except Exception as e:
-    print(f'MongoDB connection failed: {e}')
-    print('Continuing with startup, but database operations may fail.')
-"
-
-# Check data directory permissions
+# Check data directory permissions (for exporting data if needed)
 echo "Checking data directory permissions..."
 ls -la /app/data
 touch /app/data/permission_test && rm /app/data/permission_test
@@ -62,51 +42,24 @@ else
     chmod -R 777 /app/data
 fi
 
-# Attempt MongoDB backup if database exists
-echo "Attempting initial MongoDB backup..."
+# Check MongoDB connection
+echo "Checking MongoDB connection..."
 python -c "
 import os
-import sys
-import time
-import json
 from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
-
 try:
-    # Connect to MongoDB
-    MONGO_URI = os.environ.get('MONGO_URI')
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-    
-    # Get database and check if it has data
-    db = client['telegram_storage_bot']
-    users_collection = db['users']
-    
-    user_count = users_collection.count_documents({})
-    
-    if user_count > 0:
-        print(f'Found {user_count} users in database, creating backup')
-        
-        # Create backup
-        backup_dir = 'data'
-        if not os.path.exists(backup_dir):
-            os.makedirs(backup_dir, exist_ok=True)
-            
-        timestamp = int(time.time())
-        backup_file = os.path.join(backup_dir, f'mongodb_backup_{timestamp}.json')
-        
-        users_data = list(users_collection.find({}, {'_id': 0}))
-        
-        with open(backup_file, 'w') as f:
-            json.dump({'users': users_data}, f, indent=2)
-            
-        print(f'Created MongoDB backup with {len(users_data)} users at {backup_file}')
-    else:
-        print('No users found in database, skipping backup')
-        
-    client.close()
+    client = MongoClient(os.environ.get('MONGO_URI'), serverSelectionTimeoutMS=5000)
+    client.admin.command('ping')
+    print('MongoDB connection successful!')
 except Exception as e:
-    print(f'Error creating MongoDB backup: {e}')
+    print(f'ERROR: MongoDB connection failed: {e}')
+    exit(1)
 "
+
+if [ $? -ne 0 ]; then
+    echo "MongoDB connection check failed. Please check your MONGO_URI."
+    exit 1
+fi
 
 # Test health check server directly
 echo "Testing health check server..."

@@ -21,9 +21,6 @@ services:
       # RENDER will be set to true automatically
       - key: RENDER
         value: true
-      # MongoDB connection string (default, will be overridden by secrets)
-      - key: MONGO_URI
-        value: mongodb+srv://azharsayzz:Azhar@70@cluster0.0encvzq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
     # Auto-deploy on changes to main branch
     autoDeploy: true
     # Uncomment these and add your values if you want to store in render.yaml
@@ -34,4 +31,10 @@ services:
     #   - key: CHANNEL_ID
     #     value: your_channel_id
     #   - key: CHANNEL_FIRST_MESSAGE_ID
-    #     value: 2 
+    #     value: 2
+    #   - key: MONGO_URI
+    #     value: mongodb+srv://username:password@cluster.mongodb.net/database
+    #   - key: API_HASH
+    #     value: your_api_hash
+    #   - key: TELEGRAM_API_ID
+    #     value: your_api_id 
